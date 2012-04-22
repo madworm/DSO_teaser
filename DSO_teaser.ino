@@ -1,5 +1,8 @@
 #include <util/delay.h>
 
+#define FIVEHUNDRED 492
+#define TWOFIFTY 246
+
 #define UART_TX 4
 #define FIVE_VOLTS 3
 #define TRITRI_VOLTS 2
@@ -24,9 +27,9 @@ void setup(void)
 	digitalWrite(3, HIGH);
 	pinMode(4, INPUT);
 	digitalWrite(4, HIGH);
-        pinMode(9,OUTPUT); // PB1
-        digitalWrite(9,LOW); // discharge the cap
-	pinMode(10, OUTPUT); // PB2
+	pinMode(9, OUTPUT);	// PB1
+	digitalWrite(9, LOW);	// discharge the cap
+	pinMode(10, OUTPUT);	// PB2
 	pinMode(11, OUTPUT);
 	pinMode(13, OUTPUT);
 	setup_hardware_spi();
@@ -35,139 +38,104 @@ void setup(void)
 
 void loop(void)
 {
-	static uint8_t counter = 0;
-	static uint8_t tmp = 0;
-	static uint32_t last_increment = 0;
-	static uint32_t last_changed = 0;
-	const uint32_t start_stop_change_delay = 250;
-	const uint32_t increment_delay = 250;
-	uint8_t binary_counter_is_running = 1;
+	static uint8_t mode = 0;
 
-	if (counter > 13) {
-		counter = 0;
-	}
-	Serial.println(counter, BIN);
+	// Serial.println(mode, BIN);
 
-	delay(250);
+	_delay_ms(250);
 
-	switch (counter) {
+	Serial.print(F("Mode: "));
+	Serial.print(mode);
 
-  	case 13:
-		one_kilohertz_spike2();
-		counter++;
-		delay(250);
-		break;
-  
-  	case 12:
-		one_kilohertz_spike();
-		counter++;
-		delay(250);
-		break;
-  
-  	case 11:
-		blip();
-		counter++;
-		delay(250);
-		break;
-
-	case 10:
-		one_kilohertz_dip3();
-		counter++;
-		delay(250);
-		break;
-
-	case 9:
-		one_kilohertz_dip2();
-		counter++;
-		delay(250);
-		break;
-
-	case 8:
-		one_kilohertz_dip();
-		counter++;
-		delay(250);
-		break;
-
-	case 7:
-		one_kilohertz_tritri_volts();
-		counter++;
-		delay(250);
-		break;
+	switch (mode) {
 
 	case 6:
-		one_kilohertz_five_volts();
-		counter++;
-		delay(250);
+		Serial.
+		    println
+		    (" - pulse train: change trigger with right button - 1: trigger - 4: signal\n");
+		Serial.flush();
+		cli();		// can't have any interrupts running, too much timing jitter (esp. TCNT0)
+		pulse_train();
+		sei();
+		mode = 0;
+		_delay_ms(250);
 		break;
 
 	case 5:
-		while (digitalRead(3) == HIGH) {
-			LATCH_LOW;
-			spi_transfer(tmp);
-			LATCH_HIGH;
-			if ((digitalRead(2) == LOW)
-			    && ((millis() - last_changed) >
-				start_stop_change_delay)) {
-				binary_counter_is_running =
-				    !binary_counter_is_running;
-				last_changed = millis();
-			}
-			if (binary_counter_is_running
-			    && ((millis() - last_increment) >
-				increment_delay)) {
-				tmp++;
-				last_increment = millis();
-			}
-		}
-		counter++;
-		delay(250);
+		Serial.println(" - 'blip': 1: trigger - 4: signal\n");
+		Serial.flush();
+		cli();
+		blip();
+		sei();
+		mode++;
+		_delay_ms(250);
 		break;
 
 	case 4:
-		while (digitalRead(3) == HIGH) {
-			PORTC = UART_TX;
-			Serial.println("U");
-		}
-		counter++;
-		delay(250);
+		Serial.
+		    println
+		    ("- 1kHz - toggle modes with right button - 1: trigger 4: signal\n");
+		Serial.flush();
+		cli();
+		one_kilohertz();
+		sei();
+		mode++;
+		_delay_ms(250);
 		break;
 
 	case 3:
-		while (digitalRead(3) == HIGH) {
-			PORTC = FIVE_VOLTS;
-		}
-		counter++;
-		delay(250);
+		Serial.
+		    println
+		    (" - SPI binary counter: 1: CS - 2: DATA - 3: CLOCK\n");
+		Serial.flush();
+		cli();
+		spi_binary_counter();
+		sei();
+		mode++;
+		_delay_ms(250);
 		break;
 
 	case 2:
-		while (digitalRead(3) == HIGH) {
-			PORTC = TRITRI_VOLTS;
-		}
-		counter++;
-		delay(250);
+		Serial.println(" - UART 'U\\n': 4: signal\n");
+		Serial.flush();
+		cli();
+		uart_data();
+		sei();
+		mode++;
+		_delay_ms(250);
 		break;
 
 	case 1:
-                runt_pulse();
-		counter++;
-		delay(250);
+		Serial.
+		    println
+		    (" - Runt Pulse: modify with right button - 1: trigger - 4: signal\n");
+		Serial.flush();
+		cli();
+		runt_pulse();
+		sei();
+		mode++;
+		_delay_ms(250);
 		break;
 
 	case 0:
-		while (digitalRead(3) == HIGH) {
-			PORTC = GND;
-		}
-		counter++;
-		delay(250);
+		Serial.
+		    println
+		    (" - Voltage: change with right button - 4: signal\n");
+		Serial.flush();
+		cli();
+		static_voltage();
+		sei();
+		mode++;
+		_delay_ms(250);
 		break;
 
 	default:
+		Serial.println("something went wrong\n");
 		while (digitalRead(3) == HIGH) {
 			PORTC = GND;
 		}
-		counter++;
-		delay(250);
+		mode = 0;
+		_delay_ms(250);
 		break;
 	}
 }
@@ -209,101 +177,110 @@ inline uint8_t spi_transfer(uint8_t data)
 	return SPDR;		// return the received byte. (we don't need that here)
 }
 
-void one_kilohertz_five_volts(void)
+void one_kilohertz(void)
 {
+	static uint8_t mode = 0;
+	const uint8_t number_of_modes = 7;
+
 	while (digitalRead(3) == HIGH) {
 
-		PORTC = FIVE_VOLTS;
-		delayMicroseconds(495);
-		PORTC = GND;
-		delayMicroseconds(495);
-	}
-}
+		if (mode == 0) {
+			trigger_pulse();
 
-void one_kilohertz_tritri_volts(void)
-{
-	while (digitalRead(3) == HIGH) {
-		PORTC = TRITRI_VOLTS;
-		delayMicroseconds(495);
-		PORTC = GND;
-		delayMicroseconds(495);
-	}
-}
+			PORTC = FIVE_VOLTS;
+			_delay_us(FIVEHUNDRED);
+			PORTC = GND;
+			_delay_us(FIVEHUNDRED);
+		}
 
-void one_kilohertz_dip(void)
-{
-	while (digitalRead(3) == HIGH) {
-		PORTC = FIVE_VOLTS;
-		delayMicroseconds(247);
-		PORTC = TRITRI_VOLTS;
-		delayMicroseconds(1);
-		PORTC = FIVE_VOLTS;
-		delayMicroseconds(248);
-		PORTC = GND;
-		delayMicroseconds(495);
-	}
-}
+		if (mode == 1) {
+			trigger_pulse();
 
-void one_kilohertz_dip2(void)
-{
-	while (digitalRead(3) == HIGH) {
-		PORTC = FIVE_VOLTS;
-		delayMicroseconds(247);
-                PORTB |= _BV(PB2); // offer trigger ;-)
-		PORTC = GND;
-                asm("nop\n");
-                asm("nop\n");
-		PORTC = FIVE_VOLTS;
-                PORTB &= ~_BV(PB2);
-		delayMicroseconds(248);
-		PORTC = GND;
-		delayMicroseconds(495);
-	}
-}
+			PORTC = TRITRI_VOLTS;
+			_delay_us(FIVEHUNDRED);
+			PORTC = GND;
+			_delay_us(FIVEHUNDRED);
+		}
 
-void one_kilohertz_dip3(void)
-{
-	while (digitalRead(3) == HIGH) {
-		PORTC = FIVE_VOLTS;
-		delayMicroseconds(247);
-                PORTB |= _BV(PB2); // offer trigger ;-)
-		PORTC = TRITRI_VOLTS;
-                asm("nop\n");
-                asm("nop\n");
-		PORTC = FIVE_VOLTS;
-                PORTB &= ~_BV(PB2);
-		delayMicroseconds(248);
-		PORTC = GND;
-		delayMicroseconds(495);
-	}
-}
+		if (mode == 2) {
+			PORTC = FIVE_VOLTS;
+			_delay_us(TWOFIFTY);
 
-void one_kilohertz_spike(void)
-{
-	while (digitalRead(3) == HIGH) {
-		PORTC = TRITRI_VOLTS;
-		delayMicroseconds(247);
-		PORTC = FIVE_VOLTS;
-		delayMicroseconds(1);
-		PORTC = TRITRI_VOLTS;
-		delayMicroseconds(248);
-		PORTC = GND;
-		delayMicroseconds(495);
-	}
-}
+			trigger_pulse();
 
-void one_kilohertz_spike2(void)
-{
-	while (digitalRead(3) == HIGH) {
-		PORTC = TRITRI_VOLTS;
-		delayMicroseconds(247);
-                PORTB |= _BV(PB2); // offer trigger ;-)
-		PORTC = FIVE_VOLTS;
-		PORTC = TRITRI_VOLTS;
-                PORTB &= ~_BV(PB2);
-		delayMicroseconds(248);
-		PORTC = GND;
-		delayMicroseconds(495);
+			PORTC = TRITRI_VOLTS;
+			_delay_us(1);
+			PORTC = FIVE_VOLTS;
+			_delay_us(TWOFIFTY);
+			PORTC = GND;
+			_delay_us(FIVEHUNDRED);
+		}
+
+		if (mode == 3) {
+			PORTC = FIVE_VOLTS;
+			_delay_us(TWOFIFTY);
+
+			trigger_pulse();
+
+			PORTC = GND;
+			asm("nop\n");
+			asm("nop\n");
+			PORTC = FIVE_VOLTS;
+			_delay_us(TWOFIFTY);
+			PORTC = GND;
+			_delay_us(FIVEHUNDRED);
+		}
+
+		if (mode == 4) {
+			PORTC = FIVE_VOLTS;
+			_delay_us(TWOFIFTY);
+
+			trigger_pulse();
+
+			PORTC = TRITRI_VOLTS;
+			asm("nop\n");
+			asm("nop\n");
+			PORTC = FIVE_VOLTS;
+			_delay_us(TWOFIFTY);
+			PORTC = GND;
+			_delay_us(FIVEHUNDRED);
+		}
+
+		if (mode == 5) {
+			PORTC = TRITRI_VOLTS;
+			_delay_us(TWOFIFTY);
+
+			trigger_pulse();
+
+			PORTC = FIVE_VOLTS;
+			_delay_us(1);
+			PORTC = TRITRI_VOLTS;
+			_delay_us(TWOFIFTY);
+			PORTC = GND;
+			_delay_us(FIVEHUNDRED);
+
+		}
+
+		if (mode == 6) {
+			PORTC = TRITRI_VOLTS;
+			_delay_us(TWOFIFTY);
+
+			trigger_pulse();
+
+			PORTC = FIVE_VOLTS;
+			PORTC = TRITRI_VOLTS;
+			_delay_us(TWOFIFTY);
+			PORTC = GND;
+			_delay_us(FIVEHUNDRED);
+		}
+
+		if (digitalRead(2) == LOW) {
+			mode++;
+			_delay_ms(150);
+			if (mode > (number_of_modes - 1)) {
+				mode = 0;
+			}
+		}
 	}
 }
 
@@ -335,6 +312,8 @@ void blip(void)
 		PORTC = GND;
 		_delay_us(9);
 
+		trigger_pulse();
+
 		PORTC = FIVE_VOLTS;
 		_delay_us(2);
 
@@ -350,7 +329,11 @@ void runt_pulse(void)
 {
 	uint16_t counter2;
 
+	static uint8_t runt_magnitude = 0;
+	const uint8_t number_of_magnitudes = 14;
+
 	while (digitalRead(3) == HIGH) {
+
 		for (counter2 = 0; counter2 < 50; counter2++) {
 			PORTC = GND;
 			_delay_us(100);
@@ -366,23 +349,278 @@ void runt_pulse(void)
 		}
 
 		PORTC = GND;
-		_delay_us(100);
-               
-                PORTB |= _BV(PB2); // offer trigger
-               
+		_delay_us(80);
+
+		trigger_pulse();
+
 		PORTC = RUNT;
-                PORTB |= _BV(PB1); // charge the cap a bit
-                _delay_us(4);
-                PORTB &= ~_BV(PB1); // discharge it again                
-		_delay_us(16);
-                PORTC = GND;
-                
-                PORTB &= ~_BV(PB2);
+		PORTB |= _BV(PB1);	// charge the cap a bit
+		__delay_us(runt_magnitude);
+		PORTB &= ~_BV(PB1);	// discharge it again                
+		__delay_us(15 - runt_magnitude);
+		PORTC = GND;
 
 		PORTC = GND;
 		_delay_us(20);
 
 		PORTC = FIVE_VOLTS;
 		_delay_us(20);
+
+		PORTC = GND;
+		_delay_us(20);
+
+		if (digitalRead(2) == LOW) {
+			runt_magnitude++;
+			_delay_ms(150);
+			if (runt_magnitude > (number_of_magnitudes - 1)) {
+				runt_magnitude = 0;
+			}
+		}
+
 	}
+}
+
+void spi_binary_counter(void)
+{
+
+	static uint8_t tmp = 0;
+	uint16_t delay_counter = 0;
+	const uint16_t delay_counter_max = 15000;
+	uint8_t binary_counter_is_running = 1;
+
+	while (digitalRead(3) == HIGH) {
+		LATCH_LOW;
+		spi_transfer(tmp);
+		LATCH_HIGH;
+		if (digitalRead(2) == LOW) {
+			binary_counter_is_running = !binary_counter_is_running;
+			_delay_ms(150);
+		}
+		if (binary_counter_is_running) {
+			delay_counter++;
+			if (delay_counter == delay_counter_max) {
+				tmp++;
+				delay_counter = 0;
+			}
+		}
+	}
+}
+
+void uart_data(void)
+{
+	while (digitalRead(3) == HIGH) {
+		trigger_pulse();
+		PORTC = UART_TX;
+		UDR0 = 'U';
+		while (!(UCSR0A & _BV(TXC0))) {
+			// wait until data is out
+			// don't use the Serial.stuf, I need perfect timing here
+		}
+		UCSR0A |= _BV(TXC0);	// clear flag
+		delay(1);
+	}
+	Serial.println("");
+}
+
+void static_voltage(void)
+{
+	static uint8_t mode = 0;
+	const uint8_t number_of_modes = 3;
+
+	while (digitalRead(3) == HIGH) {
+
+		if (mode == 0) {
+			PORTC = FIVE_VOLTS;
+		}
+
+		if (mode == 1) {
+			PORTC = TRITRI_VOLTS;
+		}
+
+		if (mode == 2) {
+			PORTC = GND;
+		}
+
+		if (digitalRead(2) == LOW) {
+			mode++;
+			_delay_ms(150);
+			if (mode > (number_of_modes - 1)) {
+				mode = 0;
+			}
+		}
+	}
+}
+
+void pulse_train(void)
+{
+
+	static uint8_t trigger_position = 0;
+	const uint8_t number_of_trigger_positions = 16;
+
+	while (digitalRead(3) == HIGH) {
+
+		if (trigger_position == 0) {
+			trigger_pulse();
+		}
+		PORTC = FIVE_VOLTS;
+		PORTC = GND;
+		_delay_us(TWOFIFTY);
+
+		if (trigger_position == 1) {
+			trigger_pulse();
+		}
+		PORTC = FIVE_VOLTS;
+		asm("nop\n");
+		PORTC = GND;
+		_delay_us(TWOFIFTY);
+
+		if (trigger_position == 2) {
+			trigger_pulse();
+		}
+		PORTC = FIVE_VOLTS;
+		asm("nop\n");
+		asm("nop\n");
+		PORTC = GND;
+		_delay_us(TWOFIFTY);
+
+		if (trigger_position == 3) {
+			trigger_pulse();
+		}
+		PORTC = FIVE_VOLTS;
+		asm("nop\n");
+		asm("nop\n");
+		asm("nop\n");
+		PORTC = GND;
+		_delay_us(TWOFIFTY);
+
+		if (trigger_position == 4) {
+			trigger_pulse();
+		}
+		PORTC = FIVE_VOLTS;
+		asm("nop\n");
+		asm("nop\n");
+		asm("nop\n");
+		asm("nop\n");
+		PORTC = GND;
+		_delay_us(TWOFIFTY);
+
+		if (trigger_position == 5) {
+			trigger_pulse();
+		}
+		PORTC = FIVE_VOLTS;
+		asm("nop\n");
+		asm("nop\n");
+		asm("nop\n");
+		asm("nop\n");
+		asm("nop\n");
+		PORTC = GND;
+		_delay_us(TWOFIFTY);
+
+		if (trigger_position == 6) {
+			trigger_pulse();
+		}
+		PORTC = FIVE_VOLTS;
+		_delay_us(1);
+		PORTC = GND;
+		_delay_us(TWOFIFTY);
+
+		if (trigger_position == 7) {
+			trigger_pulse();
+		}
+		PORTC = FIVE_VOLTS;
+		_delay_us(1);
+		PORTC = GND;
+		_delay_us(TWOFIFTY);
+
+		if (trigger_position == 8) {
+			trigger_pulse();
+		}
+		PORTC = FIVE_VOLTS;
+		_delay_us(2);
+		PORTC = GND;
+		_delay_us(TWOFIFTY);
+
+		if (trigger_position == 9) {
+			trigger_pulse();
+		}
+		PORTC = FIVE_VOLTS;
+		_delay_us(3);
+		PORTC = GND;
+		_delay_us(TWOFIFTY);
+
+		if (trigger_position == 10) {
+			trigger_pulse();
+		}
+		PORTC = FIVE_VOLTS;
+		_delay_us(4);
+		PORTC = GND;
+		_delay_us(TWOFIFTY);
+
+		if (trigger_position == 11) {
+			trigger_pulse();
+		}
+		PORTC = FIVE_VOLTS;
+		_delay_us(5);
+		PORTC = GND;
+		_delay_us(TWOFIFTY);
+
+		if (trigger_position == 12) {
+			trigger_pulse();
+		}
+		PORTC = FIVE_VOLTS;
+		_delay_us(6);
+		PORTC = GND;
+		_delay_us(TWOFIFTY);
+
+		if (trigger_position == 13) {
+			trigger_pulse();
+		}
+		PORTC = FIVE_VOLTS;
+		_delay_us(7);
+		PORTC = GND;
+		_delay_us(TWOFIFTY);
+
+		if (trigger_position == 14) {
+			trigger_pulse();
+		}
+		PORTC = FIVE_VOLTS;
+		_delay_us(8);
+		PORTC = GND;
+		_delay_us(TWOFIFTY);
+
+		if (trigger_position == 15) {
+			trigger_pulse();
+		}
+		PORTC = FIVE_VOLTS;
+		_delay_us(9);
+		PORTC = GND;
+		_delay_us(TWOFIFTY);
+
+		_delay_ms(5);
+
+		if (digitalRead(2) == LOW) {
+			trigger_position++;
+			_delay_ms(150);
+			if (trigger_position >
+			    (number_of_trigger_positions - 1)) {
+				trigger_position = 0;
+			}
+		}
+
+	}
+}
+
+void trigger_pulse(void)
+{
+	PORTB |= _BV(PB2);	// offer trigger
+	PORTB &= ~_BV(PB2);
+}
+
+void __delay_us(uint16_t us)
+{
+	while (us) {
+		_delay_us(1);
+		us--;
+	}
+
 }
