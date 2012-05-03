@@ -2,6 +2,7 @@
 
 #define FIVEHUNDRED 492
 #define TWOFIFTY 246
+#define FIFTY 45
 
 #define UART_TX 4
 #define FIVE_VOLTS 3
@@ -49,15 +50,25 @@ void loop(void)
 
 	switch (mode) {
 
-	case 6:
-		Serial.
-		    println
-		    (" - pulse train: change trigger with right button - 1: trigger - 4: signal\n");
+	case 7:
+		Serial.println
+		    (" - pulse train B: change pulse width with right button - 1: trigger - 4: signal\n");
 		Serial.flush();
 		cli();		// can't have any interrupts running, too much timing jitter (esp. TCNT0)
-		pulse_train();
+		pulse_train_B();
 		sei();
 		mode = 0;
+		_delay_ms(250);
+		break;
+
+	case 6:
+		Serial.println
+		    (" - pulse train A: change trigger with right button - 1: trigger - 4: signal\n");
+		Serial.flush();
+		cli();		// can't have any interrupts running, too much timing jitter (esp. TCNT0)
+		pulse_train_A();
+		sei();
+		mode++;
 		_delay_ms(250);
 		break;
 
@@ -72,8 +83,7 @@ void loop(void)
 		break;
 
 	case 4:
-		Serial.
-		    println
+		Serial.println
 		    ("- 1kHz - toggle modes with right button - 1: trigger 4: signal\n");
 		Serial.flush();
 		cli();
@@ -84,8 +94,7 @@ void loop(void)
 		break;
 
 	case 3:
-		Serial.
-		    println
+		Serial.println
 		    (" - SPI binary counter: 1: CS - 2: DATA - 3: CLOCK\n");
 		Serial.flush();
 		cli();
@@ -106,8 +115,7 @@ void loop(void)
 		break;
 
 	case 1:
-		Serial.
-		    println
+		Serial.println
 		    (" - Runt Pulse: modify with right button - 1: trigger - 4: signal\n");
 		Serial.flush();
 		cli();
@@ -118,8 +126,7 @@ void loop(void)
 		break;
 
 	case 0:
-		Serial.
-		    println
+		Serial.println
 		    (" - Voltage: change with right button - 4: signal\n");
 		Serial.flush();
 		cli();
@@ -451,7 +458,7 @@ void static_voltage(void)
 	}
 }
 
-void pulse_train(void)
+void pulse_train_A(void)
 {
 
 	static uint8_t trigger_position = 0;
@@ -464,7 +471,7 @@ void pulse_train(void)
 		}
 		PORTC = FIVE_VOLTS;
 		PORTC = GND;
-		_delay_us(TWOFIFTY);
+		_delay_us(FIFTY);
 
 		if (trigger_position == 1) {
 			trigger_pulse();
@@ -472,7 +479,7 @@ void pulse_train(void)
 		PORTC = FIVE_VOLTS;
 		asm("nop\n");
 		PORTC = GND;
-		_delay_us(TWOFIFTY);
+		_delay_us(FIFTY);
 
 		if (trigger_position == 2) {
 			trigger_pulse();
@@ -481,7 +488,7 @@ void pulse_train(void)
 		asm("nop\n");
 		asm("nop\n");
 		PORTC = GND;
-		_delay_us(TWOFIFTY);
+		_delay_us(FIFTY);
 
 		if (trigger_position == 3) {
 			trigger_pulse();
@@ -491,7 +498,7 @@ void pulse_train(void)
 		asm("nop\n");
 		asm("nop\n");
 		PORTC = GND;
-		_delay_us(TWOFIFTY);
+		_delay_us(FIFTY);
 
 		if (trigger_position == 4) {
 			trigger_pulse();
@@ -502,7 +509,7 @@ void pulse_train(void)
 		asm("nop\n");
 		asm("nop\n");
 		PORTC = GND;
-		_delay_us(TWOFIFTY);
+		_delay_us(FIFTY);
 
 		if (trigger_position == 5) {
 			trigger_pulse();
@@ -514,7 +521,7 @@ void pulse_train(void)
 		asm("nop\n");
 		asm("nop\n");
 		PORTC = GND;
-		_delay_us(TWOFIFTY);
+		_delay_us(FIFTY);
 
 		if (trigger_position == 6) {
 			trigger_pulse();
@@ -522,7 +529,7 @@ void pulse_train(void)
 		PORTC = FIVE_VOLTS;
 		_delay_us(1);
 		PORTC = GND;
-		_delay_us(TWOFIFTY);
+		_delay_us(FIFTY);
 
 		if (trigger_position == 7) {
 			trigger_pulse();
@@ -530,7 +537,7 @@ void pulse_train(void)
 		PORTC = FIVE_VOLTS;
 		_delay_us(1);
 		PORTC = GND;
-		_delay_us(TWOFIFTY);
+		_delay_us(FIFTY);
 
 		if (trigger_position == 8) {
 			trigger_pulse();
@@ -538,7 +545,7 @@ void pulse_train(void)
 		PORTC = FIVE_VOLTS;
 		_delay_us(2);
 		PORTC = GND;
-		_delay_us(TWOFIFTY);
+		_delay_us(FIFTY);
 
 		if (trigger_position == 9) {
 			trigger_pulse();
@@ -546,7 +553,7 @@ void pulse_train(void)
 		PORTC = FIVE_VOLTS;
 		_delay_us(3);
 		PORTC = GND;
-		_delay_us(TWOFIFTY);
+		_delay_us(FIFTY);
 
 		if (trigger_position == 10) {
 			trigger_pulse();
@@ -554,7 +561,7 @@ void pulse_train(void)
 		PORTC = FIVE_VOLTS;
 		_delay_us(4);
 		PORTC = GND;
-		_delay_us(TWOFIFTY);
+		_delay_us(FIFTY);
 
 		if (trigger_position == 11) {
 			trigger_pulse();
@@ -562,7 +569,7 @@ void pulse_train(void)
 		PORTC = FIVE_VOLTS;
 		_delay_us(5);
 		PORTC = GND;
-		_delay_us(TWOFIFTY);
+		_delay_us(FIFTY);
 
 		if (trigger_position == 12) {
 			trigger_pulse();
@@ -570,7 +577,7 @@ void pulse_train(void)
 		PORTC = FIVE_VOLTS;
 		_delay_us(6);
 		PORTC = GND;
-		_delay_us(TWOFIFTY);
+		_delay_us(FIFTY);
 
 		if (trigger_position == 13) {
 			trigger_pulse();
@@ -578,7 +585,7 @@ void pulse_train(void)
 		PORTC = FIVE_VOLTS;
 		_delay_us(7);
 		PORTC = GND;
-		_delay_us(TWOFIFTY);
+		_delay_us(FIFTY);
 
 		if (trigger_position == 14) {
 			trigger_pulse();
@@ -586,7 +593,7 @@ void pulse_train(void)
 		PORTC = FIVE_VOLTS;
 		_delay_us(8);
 		PORTC = GND;
-		_delay_us(TWOFIFTY);
+		_delay_us(FIFTY);
 
 		if (trigger_position == 15) {
 			trigger_pulse();
@@ -594,7 +601,7 @@ void pulse_train(void)
 		PORTC = FIVE_VOLTS;
 		_delay_us(9);
 		PORTC = GND;
-		_delay_us(TWOFIFTY);
+		_delay_us(FIFTY);
 
 		_delay_ms(5);
 
@@ -607,6 +614,149 @@ void pulse_train(void)
 			}
 		}
 
+	}
+}
+
+void pulse_train_B(void)
+{
+
+	static uint8_t pulse_width = 0;
+
+	while (digitalRead(3) == HIGH) {
+
+		switch (pulse_width) {
+		case 0:
+			trigger_pulse();
+			PORTC = FIVE_VOLTS;
+			PORTC = GND;
+			break;
+
+		case 1:
+			trigger_pulse();
+			PORTC = FIVE_VOLTS;
+			asm("nop\n");
+			PORTC = GND;
+			break;
+
+		case 2:
+			trigger_pulse();
+			PORTC = FIVE_VOLTS;
+			asm("nop\n");
+			asm("nop\n");
+			PORTC = GND;
+			break;
+
+		case 3:
+			trigger_pulse();
+			PORTC = FIVE_VOLTS;
+			asm("nop\n");
+			asm("nop\n");
+			asm("nop\n");
+			PORTC = GND;
+			break;
+
+		case 4:
+			trigger_pulse();
+			PORTC = FIVE_VOLTS;
+			asm("nop\n");
+			asm("nop\n");
+			asm("nop\n");
+			asm("nop\n");
+			PORTC = GND;
+			break;
+
+		case 5:
+			trigger_pulse();
+			PORTC = FIVE_VOLTS;
+			asm("nop\n");
+			asm("nop\n");
+			asm("nop\n");
+			asm("nop\n");
+			asm("nop\n");
+			PORTC = GND;
+			break;
+
+		case 6:
+			trigger_pulse();
+			PORTC = FIVE_VOLTS;
+			_delay_us(1);
+			PORTC = GND;
+			break;
+
+		case 7:
+			trigger_pulse();
+			PORTC = FIVE_VOLTS;
+			_delay_us(1);
+			PORTC = GND;
+			break;
+
+		case 8:
+			trigger_pulse();
+			PORTC = FIVE_VOLTS;
+			_delay_us(2);
+			PORTC = GND;
+			break;
+
+		case 9:
+			trigger_pulse();
+			PORTC = FIVE_VOLTS;
+			_delay_us(3);
+			PORTC = GND;
+			break;
+
+		case 10:
+			trigger_pulse();
+			PORTC = FIVE_VOLTS;
+			_delay_us(4);
+			PORTC = GND;
+			break;
+
+		case 11:
+			trigger_pulse();
+			PORTC = FIVE_VOLTS;
+			_delay_us(5);
+			PORTC = GND;
+			break;
+
+		case 12:
+			trigger_pulse();
+			PORTC = FIVE_VOLTS;
+			_delay_us(6);
+			PORTC = GND;
+			break;
+
+		case 13:
+			trigger_pulse();
+			PORTC = FIVE_VOLTS;
+			_delay_us(7);
+			PORTC = GND;
+			break;
+
+		case 14:
+			trigger_pulse();
+			PORTC = FIVE_VOLTS;
+			_delay_us(8);
+			PORTC = GND;
+			break;
+
+		case 15:
+			trigger_pulse();
+			PORTC = FIVE_VOLTS;
+			_delay_us(9);
+			PORTC = GND;
+			break;
+
+		default:
+			pulse_width = 0;
+			break;
+		}
+
+		if (digitalRead(2) == LOW) {
+			pulse_width++;
+			_delay_ms(150);
+		}
+
+		_delay_us(FIFTY);
 	}
 }
 
