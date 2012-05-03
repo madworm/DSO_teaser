@@ -35,6 +35,7 @@ void setup(void)
 	pinMode(13, OUTPUT);
 	setup_hardware_spi();
 	Serial.begin(9600);
+        hello();
 }
 
 void loop(void)
@@ -52,7 +53,7 @@ void loop(void)
 
 	case 7:
 		Serial.println
-		    (" - pulse train B: change pulse width with right button - 1: trigger - 4: signal\n");
+		    (F(" - pulse train B: change pulse width with (OPT) button - (CS): trigger - (SIG): signal\n"));
 		Serial.flush();
 		cli();		// can't have any interrupts running, too much timing jitter (esp. TCNT0)
 		pulse_train_B();
@@ -63,7 +64,7 @@ void loop(void)
 
 	case 6:
 		Serial.println
-		    (" - pulse train A: change trigger with right button - 1: trigger - 4: signal\n");
+		    (F(" - pulse train A: change trigger with (OPT) button - (CS): trigger - (SIG): signal\n"));
 		Serial.flush();
 		cli();		// can't have any interrupts running, too much timing jitter (esp. TCNT0)
 		pulse_train_A();
@@ -73,7 +74,7 @@ void loop(void)
 		break;
 
 	case 5:
-		Serial.println(" - 'blip': 1: trigger - 4: signal\n");
+		Serial.println(F(" - 'blip': (CS): trigger - (SIG): signal\n"));
 		Serial.flush();
 		cli();
 		blip();
@@ -84,7 +85,7 @@ void loop(void)
 
 	case 4:
 		Serial.println
-		    ("- 1kHz - toggle modes with right button - 1: trigger 4: signal\n");
+		    (F("- 1kHz - toggle modes with (OPT) button - (CS): trigger - (SIG): signal\n"));
 		Serial.flush();
 		cli();
 		one_kilohertz();
@@ -95,7 +96,7 @@ void loop(void)
 
 	case 3:
 		Serial.println
-		    (" - SPI binary counter: 1: CS - 2: DATA - 3: CLOCK\n");
+		    (F(" - SPI binary counter. Start/Stop with (OPT) button: (CS): CS - (DO): DATA - (CL): CLOCK\n"));
 		Serial.flush();
 		cli();
 		spi_binary_counter();
@@ -105,8 +106,11 @@ void loop(void)
 		break;
 
 	case 2:
-		Serial.println(" - UART 'U\\n': 4: signal\n");
+		Serial.println(F(" - UART 'U\\n': (SIG): signal\n"));
+                Serial.println(F(""));
+                Serial.println(F("You will see a lot of 'U's shortly... don't worry."));
 		Serial.flush();
+                delay(5000);
 		cli();
 		uart_data();
 		sei();
@@ -116,7 +120,7 @@ void loop(void)
 
 	case 1:
 		Serial.println
-		    (" - Runt Pulse: modify with right button - 1: trigger - 4: signal\n");
+		    (F(" - Runt Pulse: modify with (OPT) button - (CS): trigger - (SIG): signal\n"));
 		Serial.flush();
 		cli();
 		runt_pulse();
@@ -127,7 +131,7 @@ void loop(void)
 
 	case 0:
 		Serial.println
-		    (" - Voltage: change with right button - 4: signal\n");
+		    (F(" - Voltage: change with (OPT) button - (SIG): signal\n"));
 		Serial.flush();
 		cli();
 		static_voltage();
@@ -137,7 +141,7 @@ void loop(void)
 		break;
 
 	default:
-		Serial.println("something went wrong\n");
+		Serial.println(F("something went wrong\n"));
 		while (digitalRead(3) == HIGH) {
 			PORTC = GND;
 		}
@@ -418,12 +422,32 @@ void uart_data(void)
 	while (digitalRead(3) == HIGH) {
 		trigger_pulse();
 		PORTC = UART_TX;
+
 		UDR0 = 'U';
 		while (!(UCSR0A & _BV(TXC0))) {
 			// wait until data is out
 			// don't use the Serial.stuf, I need perfect timing here
 		}
 		UCSR0A |= _BV(TXC0);	// clear flag
+
+                __delay_us(250);
+
+		UDR0 = '\r';
+		while (!(UCSR0A & _BV(TXC0))) {
+			// wait until data is out
+			// don't use the Serial.stuf, I need perfect timing here
+		}
+		UCSR0A |= _BV(TXC0);	// clear flag
+
+                  __delay_us(250);
+
+		UDR0 = '\n';
+		while (!(UCSR0A & _BV(TXC0))) {
+			// wait until data is out
+			// don't use the Serial.stuf, I need perfect timing here
+		}
+		UCSR0A |= _BV(TXC0);	// clear flag
+
 		delay(1);
 	}
 	Serial.println("");
@@ -773,4 +797,18 @@ void __delay_us(uint16_t us)
 		us--;
 	}
 
+}
+
+void hello(void) {
+  Serial.println(F(""));
+  Serial.println(F("+--------------------------+"));
+  Serial.println(F("|-(B1)-(MODE)-(OPT)--------|"));
+  Serial.println(F("|--------------------------|"));
+  Serial.println(F("|------------(RESET)-------|"));
+  Serial.println(F("|--------------------------|"));  
+  Serial.println(F("|-(G)----------------------|"));
+  Serial.println(F("|-(N)-----\"SPI\"------------|"));
+  Serial.println(F("|-(D)---(CS-DO-CL)---(SIG)-|"));
+  Serial.println(F("+--------------------------+"));
+  Serial.println(F(""));  
 }
